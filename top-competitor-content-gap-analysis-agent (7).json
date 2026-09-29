@@ -1,0 +1,942 @@
+{
+  "name": "Top Competitor Content Gap Analysis",
+  "description": "Conducts a Google search for a target keyword, scrapes the top competitor's webpage, analyzes HTML with an LLM, generates a content brief, and sends Slack notifications with findings.",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "position": {
+        "x": -100,
+        "y": 0
+      },
+      "data": {
+        "title": "Start"
+      },
+      "input_variables": [],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "4b81c694-da18-46ea-945c-114c3e699afe",
+            "name": "target_keyword",
+            "data_type": "string",
+            "required": true
+          }
+        },
+        {
+          "variable": {
+            "id": "077126cd-fe08-4d84-8eb4-f4ff8196ce15",
+            "name": "user_domain",
+            "data_type": "string",
+            "required": true
+          }
+        },
+        {
+          "variable": {
+            "id": "70140db2-c92c-4ed4-b529-a3fe9c2b2adc",
+            "name": "brand_name",
+            "data_type": "string",
+            "required": true
+          }
+        }
+      ],
+      "deletable": false,
+      "selected": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "pBFLlGnXiiNvLNPZNS6mo",
+      "type": "tool:serpapi:google_search",
+      "position": {
+        "x": -150,
+        "y": 156
+      },
+      "data": {
+        "title": "Google Search",
+        "tool_id": "google_search",
+        "provider_id": "serpapi",
+        "tool_parameters": {
+          "include": [
+            "organic_results"
+          ],
+          "location": "United States",
+          "num_results": 5,
+          "search_query": "{{4b81c694-da18-46ea-945c-114c3e699afe}}"
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "4b81c694-da18-46ea-945c-114c3e699afe",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "78013df0-9432-44d3-ae20-f775e71782e3",
+            "name": "node1_output",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "XMc1oVj8RL-o_uwU2OA3M",
+      "type": "tool:code_executor:execute_code",
+      "position": {
+        "x": -150,
+        "y": 353
+      },
+      "data": {
+        "provider_id": "code_executor",
+        "tool_parameters": {
+          "code": "function main(node1_output, user_domain) {\n  const data = typeof node1_output === 'string' ? JSON.parse(node1_output) : node1_output;\n  const organicResults = data.organic_results || [];\n  const topResult = organicResults.find(item => item.position === 1);\n  const topURL = topResult ? topResult.link : null;\n\n  let matchesDomain = false;\n  \n  if (topURL && user_domain) {\n    // 1. Normalize the user domain (remove http, www, and trailing slashes)\n    const cleanUserDomain = user_domain.toLowerCase()\n      .replace(/^(https?:\\/\\/)?(www\\.)?/, '')\n      .replace(/\\/$/, '');\n\n    // 2. Check if the topURL contains your clean domain\n    // This handles both root (silverfort.com) and deep links (silverfort.com/blog/...)\n    matchesDomain = topURL.toLowerCase().includes(cleanUserDomain);\n  }\n\n  const now = new Date();\n  const query_date = now.toISOString().split('T')[0];\n\n  return {\n    top_URL: topURL,\n    domain_match: matchesDomain, // This will now correctly return TRUE for deep links\n    query_date: query_date\n  };\n}",
+          "timeout": 120,
+          "language": "javascript",
+          "input_variables": [
+            {
+              "name": "node1_output",
+              "value": "{{78013df0-9432-44d3-ae20-f775e71782e3}}"
+            },
+            {
+              "name": "user_domain",
+              "value": "{{077126cd-fe08-4d84-8eb4-f4ff8196ce15}}"
+            }
+          ]
+        },
+        "tool_id": "execute_code",
+        "title": "Parse Top Result"
+      },
+      "input_variables": [
+        {
+          "variable_id": "78013df0-9432-44d3-ae20-f775e71782e3",
+          "required": false
+        },
+        {
+          "variable_id": "077126cd-fe08-4d84-8eb4-f4ff8196ce15",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "c3925d3e-7379-4242-b056-a196344cd57d",
+            "name": "top_URL",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "top_URL"
+        },
+        {
+          "variable": {
+            "id": "fd1e45d3-7ae7-46ca-9f44-fc86bcde6927",
+            "name": "domain_match",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "domain_match"
+        },
+        {
+          "variable": {
+            "id": "3697ec92-fda1-4b1b-b30e-5b11c1fd5be2",
+            "name": "links",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "links"
+        },
+        {
+          "variable": {
+            "id": "3697ec92-fda1-4b1b-b30e-5b11c1fd5be2",
+            "name": "query_date",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "query_date"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "8eZDnb4GFrkVu3n0o6_nM",
+      "type": "conditional",
+      "position": {
+        "x": -150,
+        "y": 581
+      },
+      "data": {
+        "title": "Conditional",
+        "cases": [
+          {
+            "case_id": "case_true",
+            "conditions": [
+              {
+                "id": "aSsRSlr_UWuBCaWKKNGgw",
+                "lhs": "{{ fd1e45d3-7ae7-46ca-9f44-fc86bcde6927 }}",
+                "rhs": true,
+                "comparison_operator": "=="
+              }
+            ],
+            "logical_operator": "and"
+          },
+          {
+            "case_id": "case_false",
+            "conditions": [],
+            "logical_operator": "and"
+          }
+        ]
+      },
+      "input_variables": [
+        {
+          "variable_id": "fd1e45d3-7ae7-46ca-9f44-fc86bcde6927",
+          "required": false
+        }
+      ],
+      "output_variables": [],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "lK2vsNuYHSHikYPkcOtLc",
+      "type": "tool:slack:send_message",
+      "position": {
+        "x": -450,
+        "y": 769
+      },
+      "data": {
+        "title": "User Domain is #1",
+        "tool_id": "send_message",
+        "provider_id": "slack",
+        "tool_parameters": {
+          "message": "Congrats! {{077126cd-fe08-4d84-8eb4-f4ff8196ce15}} currently holds the top position for {{4b81c694-da18-46ea-945c-114c3e699afe}} ",
+          "channel_id": "C0AN7RDGBGV",
+          "integration_id": "019cf6c9-2b20-7408-993a-0b279d16f7ab"
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "077126cd-fe08-4d84-8eb4-f4ff8196ce15",
+          "required": false
+        },
+        {
+          "variable_id": "4b81c694-da18-46ea-945c-114c3e699afe",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "cec713ed-3dcd-4e67-960e-7a1a1a44fe72",
+            "name": "Slack Output",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "jq0OucdUEhkWmZb64SmRo",
+      "type": "tool:firecrawl:scrape",
+      "position": {
+        "x": 150,
+        "y": 769
+      },
+      "data": {
+        "tool_id": "scrape",
+        "provider_id": "firecrawl",
+        "tool_parameters": {
+          "url": "{{c3925d3e-7379-4242-b056-a196344cd57d}}",
+          "formats": "html",
+          "only_main_content": true
+        },
+        "title": "Web Page Scrape"
+      },
+      "input_variables": [
+        {
+          "variable_id": "c3925d3e-7379-4242-b056-a196344cd57d",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "4b5aa086-bf0b-45b4-827c-478c87132d85",
+            "name": "scraped_top_url",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "position": {
+        "x": -400,
+        "y": 2595
+      },
+      "data": {
+        "title": "End",
+        "outputs": [
+          {
+            "key": "Slack Output",
+            "required": false,
+            "is_dynamic": true,
+            "variable_id": "cec713ed-3dcd-4e67-960e-7a1a1a44fe72"
+          }
+        ],
+        "dynamic_output_variable_id": "cec713ed-3dcd-4e67-960e-7a1a1a44fe72"
+      },
+      "input_variables": [
+        {
+          "variable_id": "cec713ed-3dcd-4e67-960e-7a1a1a44fe72",
+          "required": false
+        }
+      ],
+      "output_variables": [],
+      "deletable": false,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "8PcqggtTatkSO6AGb8-6V",
+      "type": "tool:firecrawl:map",
+      "position": {
+        "x": 150,
+        "y": 966
+      },
+      "data": {
+        "tool_id": "map",
+        "tool_parameters": {
+          "url": "{{077126cd-fe08-4d84-8eb4-f4ff8196ce15}}",
+          "limit": 5000,
+          "search": "{{4b81c694-da18-46ea-945c-114c3e699afe}}"
+        },
+        "title": "Get Sitemap",
+        "provider_id": "firecrawl"
+      },
+      "input_variables": [
+        {
+          "variable_id": "077126cd-fe08-4d84-8eb4-f4ff8196ce15",
+          "required": false
+        },
+        {
+          "variable_id": "4b81c694-da18-46ea-945c-114c3e699afe",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "179cff1f-ec48-4a9f-be16-d93170784deb",
+            "name": "user_domain_sitemap",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "H-etkrCV5t-LhR51tITU6",
+      "type": "tool:code_executor:execute_code",
+      "position": {
+        "x": 150,
+        "y": 1163
+      },
+      "data": {
+        "title": "Code",
+        "provider_id": "code_executor",
+        "tool_parameters": {
+          "code": "function main(user_domain_sitemap) {\n  // Check if the sitemap is a string and contains at least one URL\n  const hasLinks = typeof user_domain_sitemap === 'string' && user_domain_sitemap.includes('http');\n  \n  return {\n    sitemap_valid: hasLinks\n  };\n}",
+          "timeout": 120,
+          "language": "javascript",
+          "input_variables": [
+            {
+              "name": "user_domain_sitemap",
+              "value": "{{179cff1f-ec48-4a9f-be16-d93170784deb}}"
+            }
+          ]
+        },
+        "tool_id": "execute_code"
+      },
+      "input_variables": [
+        {
+          "variable_id": "179cff1f-ec48-4a9f-be16-d93170784deb",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "40107ba7-d831-4ddd-9a8c-10e56e5a9797",
+            "name": "sitemap_valid",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "sitemap_valid"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "nK8LD1qrX2Qs7iW7YvMSh",
+      "type": "conditional",
+      "position": {
+        "x": 150,
+        "y": 1391
+      },
+      "data": {
+        "title": "Conditional",
+        "cases": [
+          {
+            "case_id": "case_true",
+            "conditions": [
+              {
+                "id": "BgtCx7wKExyzPNfIDj3sc",
+                "lhs": "{{ 40107ba7-d831-4ddd-9a8c-10e56e5a9797 }}",
+                "rhs": true,
+                "comparison_operator": "=="
+              }
+            ],
+            "logical_operator": "and"
+          },
+          {
+            "case_id": "case_false",
+            "conditions": [],
+            "logical_operator": "and"
+          }
+        ]
+      },
+      "input_variables": [
+        {
+          "variable_id": "40107ba7-d831-4ddd-9a8c-10e56e5a9797",
+          "required": false
+        }
+      ],
+      "output_variables": [],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "ZZJd1MRLyBqsjME5ImjG7",
+      "type": "llm",
+      "position": {
+        "x": -50,
+        "y": 1579
+      },
+      "data": {
+        "title": "Prompt LLM",
+        "model": "gpt-latest",
+        "provider": "openai",
+        "model_parameters": {
+          "user_prompt": "Analyze the following HTML from our top competitor for the keyword {{4b81c694-da18-46ea-945c-114c3e699afe}}.\nSummarize their top 3 value propositions.\nList the primary 'H2' headers they are using to structure their content.\nIdentify any technical SEO advantages (e.g., specific meta tags or schema).\nReferencing {{179cff1f-ec48-4a9f-be16-d93170784deb}}, find the most semantically similar page to {{c3925d3e-7379-4242-b056-a196344cd57d}}.\nOutput Format: First, provide the concise report for our tracking database.\nFinal Line: At the very end of your response, provide ONLY the suggested URL on a single line preceded by the tag 'RECOMMENDED_URL:' so I can parse it as a variable.",
+          "system_prompt": "",
+          "enable_web_search": false
+        },
+        "structured_output": {
+          "fields": []
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "4b81c694-da18-46ea-945c-114c3e699afe",
+          "required": false
+        },
+        {
+          "variable_id": "179cff1f-ec48-4a9f-be16-d93170784deb",
+          "required": false
+        },
+        {
+          "variable_id": "c3925d3e-7379-4242-b056-a196344cd57d",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "b2869432-b753-4e3f-8775-1cef02b34b38",
+            "name": "LLM_summary",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "iOyKB2sREcWmg2FIFqWBt",
+      "type": "tool:slack:send_message",
+      "position": {
+        "x": 350,
+        "y": 1579
+      },
+      "data": {
+        "title": "Sitemap Issue Slack Notification",
+        "tool_parameters": {
+          "message": "Your domain, {{077126cd-fe08-4d84-8eb4-f4ff8196ce15}}, does not have a properly formatted .xml sitemap. Please updated to an .xml file type before retrying!",
+          "channel_id": "C0AN7RDGBGV",
+          "integration_id": "019cf6c9-2b20-7408-993a-0b279d16f7ab"
+        },
+        "provider_id": "slack",
+        "tool_id": "send_message"
+      },
+      "input_variables": [
+        {
+          "variable_id": "077126cd-fe08-4d84-8eb4-f4ff8196ce15",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "54e7e59e-cdbe-4eec-96fb-f629d51b9a95",
+            "name": "Sitemap Issue Slack Notification",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "XFuPi87ciyI85hx0RDbFW",
+      "type": "tool:code_executor:execute_code",
+      "position": {
+        "x": -50,
+        "y": 1776
+      },
+      "data": {
+        "provider_id": "code_executor",
+        "tool_parameters": {
+          "code": "function main(LLM_output) {\n  // Finds the line starting with RECOMMENDED_URL: and grabs the link\n  const match = LLM_output.match(/RECOMMENDED_URL:\\s*(https?:\\/\\/[^\\s]+)/);\n  const internalURL = match ? match[1] : \"No match found\";\n\n  return {\n    target_internal_URL: internalURL\n  };\n}",
+          "timeout": 120,
+          "language": "javascript",
+          "input_variables": [
+            {
+              "name": "LLM_output",
+              "value": "{{b2869432-b753-4e3f-8775-1cef02b34b38}}"
+            }
+          ]
+        },
+        "title": "Generate Target Internal URL Variable",
+        "tool_id": "execute_code"
+      },
+      "input_variables": [
+        {
+          "variable_id": "b2869432-b753-4e3f-8775-1cef02b34b38",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "a85a1a7c-127e-46b3-80b2-f4b905515936",
+            "name": "target_internal_URL",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "target_internal_URL"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "end::nK8LD1qrX2Qs7iW7YvMSh::case_false",
+      "type": "end",
+      "position": {
+        "x": 400,
+        "y": 2595
+      },
+      "data": {
+        "title": "End",
+        "outputs": [
+          {
+            "key": "Sitemap Issue Slack Notification",
+            "required": false,
+            "is_dynamic": true,
+            "variable_id": "54e7e59e-cdbe-4eec-96fb-f629d51b9a95"
+          }
+        ],
+        "dynamic_output_variable_id": "54e7e59e-cdbe-4eec-96fb-f629d51b9a95"
+      },
+      "input_variables": [
+        {
+          "variable_id": "54e7e59e-cdbe-4eec-96fb-f629d51b9a95",
+          "required": false
+        }
+      ],
+      "output_variables": [],
+      "deletable": false,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "x8nlT0z-mEYT2tHIFXVzo",
+      "type": "tool:profound:create_content_brief",
+      "position": {
+        "x": -50,
+        "y": 1973
+      },
+      "data": {
+        "tool_parameters": {
+          "topic": "{{4b81c694-da18-46ea-945c-114c3e699afe}}",
+          "prompts": "{{4b81c694-da18-46ea-945c-114c3e699afe}}",
+          "citations": "{{c3925d3e-7379-4242-b056-a196344cd57d}}{{a85a1a7c-127e-46b3-80b2-f4b905515936}}",
+          "platforms": [
+            "Meta AI",
+            "Perplexity",
+            "ChatGPT",
+            "Microsoft Copilot",
+            "Google Gemini",
+            "Grok",
+            "Google AI Overviews",
+            "Google AI Mode"
+          ],
+          "company_url": "{{077126cd-fe08-4d84-8eb4-f4ff8196ce15}}",
+          "company_name": "{{70140db2-c92c-4ed4-b529-a3fe9c2b2adc}}",
+          "content_type": "General",
+          "article_title": "",
+          "audience_segment": "",
+          "additional_instructions": ""
+        },
+        "title": "Create Content Brief",
+        "tool_id": "create_content_brief",
+        "provider_id": "profound"
+      },
+      "input_variables": [
+        {
+          "variable_id": "4b81c694-da18-46ea-945c-114c3e699afe",
+          "required": false
+        },
+        {
+          "variable_id": "70140db2-c92c-4ed4-b529-a3fe9c2b2adc",
+          "required": false
+        },
+        {
+          "variable_id": "077126cd-fe08-4d84-8eb4-f4ff8196ce15",
+          "required": false
+        },
+        {
+          "variable_id": "c3925d3e-7379-4242-b056-a196344cd57d",
+          "required": false
+        },
+        {
+          "variable_id": "a85a1a7c-127e-46b3-80b2-f4b905515936",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "feb9e389-9c14-461d-b14d-60192519b0f9",
+            "name": "Create Content Brief Output",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "UN6_Mg9muurMUVia94fQh",
+      "type": "llm",
+      "position": {
+        "x": -50,
+        "y": 2170
+      },
+      "data": {
+        "title": "Condense Brief",
+        "model": "gpt-latest",
+        "model_parameters": {
+          "user_prompt": "Take the {{feb9e389-9c14-461d-b14d-60192519b0f9}} and improve its visibility so it can be sent as a streamlined and concise Slack Message  - only send the actual report in your response. Do not include emojis\n\nThe title of the content brief should include: {{4b81c694-da18-46ea-945c-114c3e699afe}}, {{70140db2-c92c-4ed4-b529-a3fe9c2b2adc}}",
+          "system_prompt": "",
+          "enable_web_search": false
+        },
+        "provider": "openai"
+      },
+      "input_variables": [
+        {
+          "variable_id": "feb9e389-9c14-461d-b14d-60192519b0f9",
+          "required": false
+        },
+        {
+          "variable_id": "4b81c694-da18-46ea-945c-114c3e699afe",
+          "required": false
+        },
+        {
+          "variable_id": "70140db2-c92c-4ed4-b529-a3fe9c2b2adc",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "7d0661a7-7bd6-4768-a20d-508887ebb411",
+            "name": "Slack Beautify Report",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "RdGgH2o17jw8sChCecomm",
+      "type": "tool:slack:send_message",
+      "position": {
+        "x": -50,
+        "y": 2367
+      },
+      "data": {
+        "tool_id": "send_message",
+        "provider_id": "slack",
+        "tool_parameters": {
+          "message": "Here is {{077126cd-fe08-4d84-8eb4-f4ff8196ce15}}'s competitor analysis for \"{{4b81c694-da18-46ea-945c-114c3e699afe}}\" \n\nTop Ranking URL: {{c3925d3e-7379-4242-b056-a196344cd57d}}\nYour Site's Most Semantically Similar URL: {{a85a1a7c-127e-46b3-80b2-f4b905515936}}\n\nContent Brief:\n{{7d0661a7-7bd6-4768-a20d-508887ebb411}}",
+          "channel_id": "C0AN7RDGBGV",
+          "integration_id": "019cf6c9-2b20-7408-993a-0b279d16f7ab"
+        },
+        "title": "Full Report Slack Notification"
+      },
+      "input_variables": [
+        {
+          "variable_id": "077126cd-fe08-4d84-8eb4-f4ff8196ce15",
+          "required": false
+        },
+        {
+          "variable_id": "4b81c694-da18-46ea-945c-114c3e699afe",
+          "required": false
+        },
+        {
+          "variable_id": "c3925d3e-7379-4242-b056-a196344cd57d",
+          "required": false
+        },
+        {
+          "variable_id": "a85a1a7c-127e-46b3-80b2-f4b905515936",
+          "required": false
+        },
+        {
+          "variable_id": "7d0661a7-7bd6-4768-a20d-508887ebb411",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "f20c8f12-7844-4f6e-9b70-884f7152efd2",
+            "name": "Slack Output",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "end::8eZDnb4GFrkVu3n0o6_nM::case_false",
+      "type": "end",
+      "position": {
+        "x": 0,
+        "y": 2595
+      },
+      "data": {
+        "title": "End",
+        "outputs": [
+          {
+            "key": "Slack Output",
+            "required": false,
+            "is_dynamic": true,
+            "variable_id": "f20c8f12-7844-4f6e-9b70-884f7152efd2"
+          }
+        ],
+        "dynamic_output_variable_id": "f20c8f12-7844-4f6e-9b70-884f7152efd2"
+      },
+      "input_variables": [
+        {
+          "variable_id": "f20c8f12-7844-4f6e-9b70-884f7152efd2",
+          "required": false
+        }
+      ],
+      "output_variables": [],
+      "deletable": false,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    }
+  ],
+  "edges": [
+    {
+      "id": "xy-edge__startoutput-pBFLlGnXiiNvLNPZNS6mo",
+      "source": "start",
+      "target": "pBFLlGnXiiNvLNPZNS6mo",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "xy-edge__pBFLlGnXiiNvLNPZNS6mooutput-XMc1oVj8RL-o_uwU2OA3M",
+      "source": "pBFLlGnXiiNvLNPZNS6mo",
+      "target": "XMc1oVj8RL-o_uwU2OA3M",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "xy-edge__XMc1oVj8RL-o_uwU2OA3Moutput-8eZDnb4GFrkVu3n0o6_nM",
+      "source": "XMc1oVj8RL-o_uwU2OA3M",
+      "target": "8eZDnb4GFrkVu3n0o6_nM",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "xy-edge__lK2vsNuYHSHikYPkcOtLcoutput-endinput",
+      "source": "lK2vsNuYHSHikYPkcOtLc",
+      "target": "end",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "841sFyX1Wwz4NbSp89NBb",
+      "source": "8eZDnb4GFrkVu3n0o6_nM",
+      "target": "lK2vsNuYHSHikYPkcOtLc",
+      "sourceHandle": "case_true",
+      "targetHandle": null,
+      "type": "conditional",
+      "data": {
+        "branchType": "met"
+      }
+    },
+    {
+      "id": "xy-edge__8eZDnb4GFrkVu3n0o6_nMcase_false-jq0OucdUEhkWmZb64SmRo",
+      "source": "8eZDnb4GFrkVu3n0o6_nM",
+      "target": "jq0OucdUEhkWmZb64SmRo",
+      "sourceHandle": "case_false",
+      "targetHandle": null,
+      "type": "conditional",
+      "data": {
+        "branchType": "not_met"
+      }
+    },
+    {
+      "id": "bccO2PCIp6komDEKQCm8o",
+      "source": "jq0OucdUEhkWmZb64SmRo",
+      "target": "8PcqggtTatkSO6AGb8-6V",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "xy-edge__ZZJd1MRLyBqsjME5ImjG7output-XFuPi87ciyI85hx0RDbFW",
+      "source": "ZZJd1MRLyBqsjME5ImjG7",
+      "target": "XFuPi87ciyI85hx0RDbFW",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "xy-edge__XFuPi87ciyI85hx0RDbFWoutput-x8nlT0z-mEYT2tHIFXVzo",
+      "source": "XFuPi87ciyI85hx0RDbFW",
+      "target": "x8nlT0z-mEYT2tHIFXVzo",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "xy-edge__x8nlT0z-mEYT2tHIFXVzooutput-UN6_Mg9muurMUVia94fQh",
+      "source": "x8nlT0z-mEYT2tHIFXVzo",
+      "target": "UN6_Mg9muurMUVia94fQh",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "xy-edge__nK8LD1qrX2Qs7iW7YvMShcase_true-ZZJd1MRLyBqsjME5ImjG7",
+      "source": "nK8LD1qrX2Qs7iW7YvMSh",
+      "target": "ZZJd1MRLyBqsjME5ImjG7",
+      "sourceHandle": "case_true",
+      "targetHandle": null,
+      "type": "conditional",
+      "data": {
+        "branchType": "met"
+      }
+    },
+    {
+      "id": "xy-edge__8PcqggtTatkSO6AGb8-6Voutput-H-etkrCV5t-LhR51tITU6",
+      "source": "8PcqggtTatkSO6AGb8-6V",
+      "target": "H-etkrCV5t-LhR51tITU6",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "xy-edge__H-etkrCV5t-LhR51tITU6output-nK8LD1qrX2Qs7iW7YvMSh",
+      "source": "H-etkrCV5t-LhR51tITU6",
+      "target": "nK8LD1qrX2Qs7iW7YvMSh",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "xy-edge__nK8LD1qrX2Qs7iW7YvMShcase_false-iOyKB2sREcWmg2FIFqWBt",
+      "source": "nK8LD1qrX2Qs7iW7YvMSh",
+      "target": "iOyKB2sREcWmg2FIFqWBt",
+      "sourceHandle": "case_false",
+      "targetHandle": null,
+      "type": "conditional",
+      "data": {
+        "branchType": "not_met"
+      }
+    },
+    {
+      "id": "xy-edge__iOyKB2sREcWmg2FIFqWBtoutput-end::nK8LD1qrX2Qs7iW7YvMSh::case_falseinput",
+      "source": "iOyKB2sREcWmg2FIFqWBt",
+      "target": "end::nK8LD1qrX2Qs7iW7YvMSh::case_false",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "yvLEyk-_Qpk6GDMSLQ1v-",
+      "source": "UN6_Mg9muurMUVia94fQh",
+      "target": "RdGgH2o17jw8sChCecomm",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "oVM0PMa5MZKBL48KHPd6E",
+      "source": "RdGgH2o17jw8sChCecomm",
+      "target": "end::8eZDnb4GFrkVu3n0o6_nM::case_false",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    }
+  ]
+}
